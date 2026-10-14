@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Chấm công</title>
+<!-- Thư viện ngoài: cố định đúng phiên bản. Có thể thêm integrity="sha384-..." crossorigin="anonymous" (lấy tại srihash.org) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Css.html – Giao diện (màu sắc, bố cục) -->
+<style>
+  :root{--pri:#1f4e79;--pri2:#2e75b6;--ok:#1e8449;--warn:#b9770e;--err:#c0392b;--bg:#f2f5f9;--card:#fff;--tx:#1d2733;--mu:#6b7785;--bd:#dde3ea}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--tx);font-size:15px}
+  header{background:var(--pri);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+  header .org{font-weight:700;font-size:16px}
+  header .who{font-size:13px;opacity:.9;text-align:right}
+  header .who a{color:#cfe3ff;cursor:pointer;text-decoration:underline}
+  nav{display:flex;gap:4px;overflow-x:auto;background:#fff;border-bottom:1px solid var(--bd);padding:0 8px;position:sticky;top:0;z-index:5}
+  nav button{border:0;background:none;padding:12px 12px;font-size:14px;color:var(--mu);white-space:nowrap;border-bottom:3px solid transparent;cursor:pointer}
+  nav button.active{color:var(--pri);border-bottom-color:var(--pri);font-weight:600}
+  main{max-width:860px;margin:0 auto;padding:16px}
+  .tab{display:none}.tab.active{display:block}
+  .card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .center{text-align:center}
+  h2{font-size:17px;margin:0 0 12px}
+  .bigtime{font-size:46px;font-weight:700;color:var(--pri);letter-spacing:1px}
+  .bigdate{color:var(--mu);margin-bottom:18px}
+  .btn{display:inline-block;border:0;border-radius:10px;padding:11px 16px;font-size:15px;cursor:pointer;background:#e8eef5;color:var(--tx)}
+  .btn.pri{background:var(--pri2);color:#fff}
+  .btn.ok{background:var(--ok);color:#fff}.btn.err{background:var(--err);color:#fff}
+  .btn.huge{font-size:20px;padding:20px 34px;border-radius:16px;width:100%;max-width:340px}
+  .btn.sm{padding:7px 11px;font-size:13px}
+  .btn:disabled{opacity:.5}
+  .pill{display:inline-block;padding:4px 10px;border-radius:20px;font-size:13px;background:#eef2f7;color:var(--mu);margin-top:12px}
+  .pill.ok{background:#e3f4ea;color:var(--ok)}.pill.err{background:#fbe6e4;color:var(--err)}
+  .result{margin-top:16px;padding:14px;border-radius:12px;display:none}
+  .result.ok{display:block;background:#e3f4ea;color:#145a32}.result.err{display:block;background:#fbe6e4;color:#922b21}
+  .result.warn{display:block;background:#fdf2e0;color:#7e5109}
+  label.f{display:block;font-size:13px;color:var(--mu);margin:10px 0 4px}
+  input,select,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:9px;font-size:15px;font-family:inherit;background:#fff}
+  .row{display:flex;gap:10px}.row>*{flex:1}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 6px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
+  th{color:var(--mu);font-weight:600}
+  .tbl{overflow-x:auto}
+  .st{font-size:12px;padding:2px 8px;border-radius:10px;white-space:nowrap}
+  .st.cho{background:#fdf2e0;color:#7e5109}.st.ok{background:#e3f4ea;color:#145a32}.st.no{background:#fbe6e4;color:#922b21}.st.huy{background:#eee;color:#777}
+  .leave{border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px}
+  .leave .meta{color:var(--mu);font-size:13px;margin:4px 0}
+  .muted{color:var(--mu);font-size:13px}
+  .hidden{display:none!important}
+  .modal{position:fixed;inset:0;background:rgba(10,20,30,.75);display:none;align-items:center;justify-content:center;z-index:50;padding:14px}
+  .modal.show{display:flex}
+  .cam{background:#fff;border-radius:16px;padding:16px;width:100%;max-width:420px;text-align:center}
+  .camwrap{position:relative;width:100%;aspect-ratio:3/4;background:#000;border-radius:12px;overflow:hidden}
+  .camwrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  .camwrap .oval{position:absolute;left:50%;top:46%;width:62%;height:62%;transform:translate(-50%,-50%);border:3px dashed rgba(255,255,255,.8);border-radius:50%}
+  .camwrap .oval.hit{border-color:#2ecc71;border-style:solid}
+  .camwrap .cue{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(31,78,121,.92);color:#fff;
+    font-size:22px;font-weight:700;padding:10px 18px;border-radius:12px;white-space:nowrap;display:none}
+  .camwrap .cue.show{display:block;animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{50%{transform:translateX(-50%) scale(1.08)}}
+  .camwrap .oval.blink{border-color:#f5b041;border-style:solid;box-shadow:0 0 0 4px rgba(245,176,65,.35)}
+  #camMsg{min-height:22px;margin:10px 0}
+  #anchorBar{background:#145a32;color:#fff;font-size:13px;padding:8px 16px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  #anchorBar button{background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:8px;padding:5px 10px;cursor:pointer}
+  #anchorBar.err{background:#922b21}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#bbb;margin-right:6px}.dot.on{background:#27ae60}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:60;max-width:90%}
+</style>
+
+</head>
+<body>
+<header>
+  <div class="org" id="org">Chấm công</div>
+  <div class="who" id="who"></div>
+</header>
+<div id="anchorBar" class="hidden"><span id="anchorTxt"></span><button onclick="stopAnchor()">Tắt</button></div>
+<nav id="nav">
+  <button data-tab="cc" class="active">Chấm công</button>
+  <button data-tab="me">Cá nhân &amp; Báo vắng</button>
+  <button data-tab="duyet" class="hidden" id="navDuyet">Duyệt đơn</button>
+  <button data-tab="bc" class="hidden" id="navBc">Báo cáo</button>
+  <button data-tab="qt">Quản trị</button>
+</nav>
+
+<main>
+  <!-- CHẤM CÔNG -->
+  <section class="tab active" id="tab-cc">
+    <div class="card center">
+      <div class="bigtime" id="bigTime">--:--</div>
+      <div class="bigdate" id="bigDate"></div>
+      <button class="btn pri huge" id="btnCheck">📷 Soi mặt chấm công</button>
+      <div class="muted" style="margin-top:10px" id="chuan"></div>
+      <div><span class="pill" id="net">Đang kiểm tra mạng...</span></div>
+      <div><span class="pill" id="model">Đang tải bộ nhận diện khuôn mặt...</span></div>
+      <div class="result" id="ccResult"></div>
+    </div>
+    <div class="card muted">
+      Lần soi đầu tiên trong ngày được ghi là <b>giờ vào</b>; lần soi sau (cách ít nhất 5 phút) được ghi là <b>giờ ra</b>.
+      Thiết bị cần kết nối <b>wifi cơ quan</b> (tắt 4G/VPN).
+      Khi soi mặt, hãy làm theo hướng dẫn hiện trên màn hình (<b>chớp mắt</b>, <b>quay trái</b>, <b>quay phải</b> – thứ tự ngẫu nhiên mỗi lần) để xác nhận người thật.
+    </div>
+  </section>
+
+  <!-- CÁ NHÂN -->
+  <section class="tab" id="tab-me">
+    <div class="card center needlogin">
+      <p>Soi khuôn mặt để đăng nhập, xem công và gửi đơn báo vắng.</p>
+      <button class="btn pri" onclick="login()">📷 Soi mặt để đăng nhập</button>
+    </div>
+    <div class="haslogin hidden">
+      <div class="card">
+        <h2>Gửi đơn báo vắng</h2>
+        <div class="row">
+          <div><label class="f">Từ ngày</label><input type="date" id="lvTu"></div>
+          <div><label class="f">Đến ngày</label><input type="date" id="lvDen"></div>
+        </div>
+        <label class="f">Loại nghỉ</label><select id="lvLoai"></select>
+        <label class="f">Lý do</label><textarea id="lvLyDo" rows="3" placeholder="Nêu rõ lý do vắng mặt"></textarea>
+        <div style="margin-top:12px"><button class="btn pri" id="btnLeave" onclick="sendLeave()">Gửi đơn</button></div>
+      </div>
+      <div class="card"><h2>Đơn của tôi</h2><div id="myLeaves" class="muted">Đang tải...</div></div>
+      <div class="card"><h2>Chấm công 31 ngày gần nhất</h2><div id="myCC" class="tbl muted">Đang tải...</div></div>
+    </div>
+  </section>
+
+  <!-- DUYỆT -->
+  <section class="tab" id="tab-duyet">
+    <div class="card">
+      <h2>Đơn chờ tôi duyệt <button class="btn sm" style="float:right" onclick="loadPending()">↻ Làm mới</button></h2>
+      <div id="pending" class="muted">Đang tải...</div>
+    </div>
+  </section>
+
+  <!-- BÁO CÁO -->
+  <section class="tab" id="tab-bc">
+    <div class="card">
+      <h2>Xuất báo cáo Excel</h2>
+      <div class="row">
+        <div><label class="f">Loại kỳ</label>
+          <select id="bcKieu" onchange="fillKy()"><option value="thang">Tháng</option><option value="quy">Quý</option><option value="nam">Năm</option></select></div>
+        <div id="kyBox"><label class="f">Kỳ</label><select id="bcKy"></select></div>
+        <div><label class="f">Năm</label><input type="number" id="bcNam"></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn pri" id="btnXlsx" onclick="exportXlsx()">⬇ Tải file Excel</button>
+        <button class="btn" id="btnDrive" onclick="exportDrive()">Lưu vào Google Drive</button>
+      </div>
+      <p class="muted">File gồm 3 trang: Tổng hợp theo nhân viên, Chi tiết chấm công, Danh sách nghỉ có phép. Nếu máy không tải được file, dùng nút “Lưu vào Google Drive”.</p>
+      <div id="bcPreview" class="tbl"></div>
+    </div>
+  </section>
+
+  <!-- QUẢN TRỊ -->
+  <section class="tab" id="tab-qt">
+    <div class="card">
+      <h2>Đăng ký khuôn mặt nhân viên</h2>
+      <p class="muted">Thêm nhân viên trực tiếp vào sheet <b>NhanVien</b>, sau đó đăng ký khuôn mặt tại đây (mỗi người lấy 3 mẫu).</p>
+      <div class="row">
+        <input type="password" id="pin" placeholder="Mã quản trị" inputmode="numeric">
+        <button class="btn pri" style="flex:0 0 auto" onclick="adminLoad()">Mở danh sách</button>
+      </div>
+      <div id="adminList" class="tbl" style="margin-top:12px"></div>
+    </div>
+    <div class="card hidden" id="netCard">
+      <h2>Wifi cơ quan (không cần IP tĩnh)</h2>
+      <p class="muted">Trình duyệt không đọc được tên wifi, nên hệ thống nhận biết wifi cơ quan qua <b>thiết bị neo</b>:
+        một máy tính đặt tại cơ quan, dùng wifi cơ quan, mở trang này và để chạy. Máy neo tự báo IP của wifi lên hệ thống
+        5 phút/lần, nên khi nhà mạng đổi IP, hệ thống tự cập nhật theo.</p>
+      <div id="netStatus" class="tbl"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn pri" onclick="makeAnchor()">📡 Đặt máy này làm thiết bị neo</button>
+        <button class="btn" onclick="removeAnchors()">Gỡ tất cả thiết bị neo</button>
+      </div>
+    </div>
+    <div class="card hidden" id="locCard">
+      <h2>Kiểm tra vị trí (GPS) – tuỳ chọn</h2>
+      <p class="muted">Chỉ cho chấm công trong bán kính quy định quanh cơ quan. Hãy đứng tại cơ quan rồi bấm nút để lấy toạ độ.</p>
+      <div id="locStatus" class="muted"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn pri" onclick="setOffice(true)">📍 Lấy vị trí hiện tại & bật kiểm tra</button>
+        <button class="btn" onclick="setOffice(false)">Tắt kiểm tra vị trí</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Camera -->
+<div class="modal" id="camModal">
+  <div class="cam">
+    <h2 id="camTitle">Soi khuôn mặt</h2>
+    <div class="camwrap"><video id="video" playsinline muted autoplay></video><div class="oval" id="oval"></div><div class="cue" id="cue"></div></div>
+    <div id="camMsg"></div>
+    <div id="fallback" class="hidden" style="margin-bottom:10px">
+      <label class="btn pri">📸 Chụp ảnh khuôn mặt
+        <input type="file" accept="image/*" capture="user" id="fileInput" hidden>
+      </label>
+    </div>
+    <button class="btn" onclick="finishScan(new Error('Đã hủy'))">Hủy</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<!-- JsCore.html – Hàm dùng chung: gọi máy chủ, thông báo, phiên đăng nhập, tab, đồng hồ, mạng & vị trí -->
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* ====================================================================
+ * ĐƯỜNG LINK MÁY CHỦ – DÁN LINK "Web app URL" (kết thúc bằng /exec) VÀO GIỮA HAI DẤU NHÁY
+ * ==================================================================== */
+const API_URL = 'DAN_LINK_EXEC_VAO_DAY';
+
+/** Gọi chức năng trên máy chủ Apps Script qua HTTPS */
+async function call(fn, ...args) {
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(API_URL)) {
+    throw new Error('Chưa cấu hình đường link máy chủ (API_URL) trong file index.html.');
+  }
+  let r;
+  try {
+    r = await fetch(API_URL, { method: 'POST', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args }) });
+  } catch (e) { throw new Error('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.'); }
+  let j;
+  try { j = await r.json(); } catch (e) { throw new Error('Máy chủ trả về dữ liệu lỗi. Kiểm tra lại đường link API_URL và quyền "Anyone" khi triển khai.'); }
+  if (!j.ok) throw new Error(j.error || 'Lỗi không xác định');
+  return j.data;
+}
+const errMsg = e => (e && e.message) ? e.message.replace(/^Error:\s*/, '') : String(e);
+function toast(m, ms){ const t=$('toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none', ms||3500); }
+
+let INFO = {}, TOKEN = null, USER = null, MY_IP = '';
+try { TOKEN = sessionStorage.getItem('cc_token'); USER = JSON.parse(sessionStorage.getItem('cc_user')||'null'); } catch(e){}
+
+
+/* ---------- Đồng hồ ---------- */
+const THU = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
+function tick(){ const d=new Date(); $('bigTime').textContent=d.toTimeString().slice(0,8);
+  $('bigDate').textContent=THU[d.getDay()]+', '+d.toLocaleDateString('vi-VN'); }
+setInterval(tick, 1000); tick();
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+function showTab(name){
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab===name));
+  document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id==='tab-'+name));
+  if (name==='me' && TOKEN) loadMe();
+  if (name==='duyet' && TOKEN) loadPending();
+}
+
+/* ---------- Mạng ---------- */
+async function getIp(){
+  try { const r = await fetch('https://api.ipify.org?format=json', {cache:'no-store'}); MY_IP = (await r.json()).ip; }
+  catch(e){ MY_IP=''; }
+  return MY_IP;
+}
+
+function getLoc(){
+  return new Promise(res => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      p => res({ lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy }),
+      () => res(null), { enableHighAccuracy:true, timeout:12000, maximumAge:30000 });
+  });
+}
+
+/* ---------- Phiên ---------- */
+function setSession(token, user){
+  TOKEN = token; USER = user;
+  try { if (token){ sessionStorage.setItem('cc_token', token); sessionStorage.setItem('cc_user', JSON.stringify(user)); }
+        else { sessionStorage.removeItem('cc_token'); sessionStorage.removeItem('cc_user'); } } catch(e){}
+  renderSession();
+}
+function renderSession(){
+  const r = USER && USER.vaiTro;
+  $('who').innerHTML = USER ? esc(USER.hoTen)+'<br>'+esc(USER.phongBan)+' · <a onclick="logout()">Đăng xuất</a>' : '';
+  document.querySelectorAll('.needlogin').forEach(e=>e.classList.toggle('hidden', !!USER));
+  document.querySelectorAll('.haslogin').forEach(e=>e.classList.toggle('hidden', !USER));
+  $('navDuyet').classList.toggle('hidden', !(r==='TruongPhong' || r==='LanhDao'));
+  $('navBc').classList.toggle('hidden', !['TruongPhong','LanhDao','BaoCao','QuanTri'].includes(r));
+}
+function logout(){ const t = TOKEN; if (t) call('logout', t).catch(()=>{}); setSession(null, null); showTab('cc'); }
+async function login(){
+  try {
+    const sf = await scanFace('Soi mặt để đăng nhập', { live:true });
+    const r = await call('loginFace', sf);
+    setSession(r.token, r.user); toast('Xin chào ' + r.user.hoTen); loadMe();
+  } catch(e){ if (errMsg(e)!=='Đã hủy') toast(errMsg(e), 5000); }
+}
+function handleAuthErr(e){ const m=errMsg(e); if (/hết hạn/.test(m)) setSession(null,null); toast(m,5000); }
+</script>
+
+<!-- JsKhuonMat.html – Nhận diện khuôn mặt & thử thách người thật (chớp mắt, quay trái/phải) -->
+<script>
+/* ---------- Mô hình khuôn mặt ---------- */
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/';
+const DET = () => new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+const modelsReady = (async () => {
+  await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+  await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+  await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+})();
+modelsReady.then(()=>{ $('model').textContent='Bộ nhận diện sẵn sàng'; $('model').className='pill ok'; })
+  .catch(()=>{ $('model').textContent='Không tải được bộ nhận diện – kiểm tra mạng'; $('model').className='pill err'; });
+
+/* ---------- Quét khuôn mặt + thử thách người thật ---------- */
+// Khi bật kiểm tra người thật, máy chủ cấp một chuỗi động tác ngẫu nhiên, ví dụ: PHAI → CHOP → TRAI.
+//  1) "face" : thu 2 mẫu khuôn mặt nhìn thẳng, đo độ mở mắt (EAR) và tư thế đầu (yaw) chuẩn
+//  2) "act"  : lần lượt làm từng động tác: CHOP = nhắm mắt ~1 giây rồi mở; TRAI/PHAI = quay mặt rồi nhìn thẳng lại
+//  3) "after": thu thêm 1 mẫu nhìn thẳng, kiểm tra vẫn là cùng một khuôn mặt
+let scan = null;
+const FAST = () => new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
+const pd = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+function eyeAR(p){ return (pd(p[1],p[5]) + pd(p[2],p[4])) / (2*pd(p[0],p[3])); }
+function earOf(lm){ return (eyeAR(lm.getLeftEye()) + eyeAR(lm.getRightEye())) / 2; }
+// Vị trí mũi so với hai bên má (0.5 = nhìn thẳng). Trên ảnh gốc camera trước (chưa lật gương),
+// khi người dùng quay sang TRÁI của họ thì giá trị TĂNG. Nếu thực tế bị ngược, đổi YAW_SIGN thành -1.
+const YAW_SIGN = 1;
+function yawOf(lm){ const p = lm.positions; return (p[30].x - p[0].x) / (p[16].x - p[0].x); }
+function median(a){ const s=[...a].sort((x,y)=>x-y); return s[Math.floor(s.length/2)]; }
+function descDist(a,b){ let s=0; for(let i=0;i<128;i++){ const d=a[i]-b[i]; s+=d*d; } return Math.sqrt(s); }
+
+const ACT_TEXT = {
+  CHOP: { cue:'👁 CHỚP MẮT', msg:'Nhắm mắt khoảng 1 giây rồi MỞ RA' },
+  TRAI: { cue:'⬅ QUAY TRÁI', msg:'Từ từ quay mặt sang TRÁI' },
+  PHAI: { cue:'QUAY PHẢI ➡', msg:'Từ từ quay mặt sang PHẢI' }
+};
+function setMsg(t){ $('camMsg').textContent = t; }
+function setCue(t){ const c=$('cue'); c.textContent = t || ''; c.classList.toggle('show', !!t); }
+
+/** opts.live = true: bắt buộc làm thử thách (chấm công, đăng nhập) */
+function scanFace(title, opts){
+  opts = opts || {};
+  const needLive = !!opts.live && INFO.live !== false;
+  return new Promise(async (resolve, reject) => {
+    scan = { resolve, reject, stream:null, descs:[], needLive, phase:'face', ears:[], yaws:[],
+             challenge:null, step:0, done:[], sub:'', tStep:0 };
+    $('camTitle').textContent = title; setMsg('Đang mở camera...'); setCue('');
+    $('fallback').classList.add('hidden'); $('oval').classList.remove('hit','blink');
+    $('camModal').classList.add('show');
+    const chP = needLive ? call('getChallenge').catch(()=>null) : Promise.resolve(null);
+    try { await modelsReady; } catch(e){ return finishScan(new Error('Chưa tải được bộ nhận diện khuôn mặt.')); }
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:640} }, audio:false });
+      if (!scan) { s.getTracks().forEach(t=>t.stop()); return; }
+      scan.stream = s; const v=$('video'); v.srcObject = s; await v.play();
+      if (needLive) {
+        const ch = await chP;
+        if (!scan) return;
+        if (!ch) return finishScan(new Error('Không lấy được yêu cầu xác thực từ máy chủ, vui lòng thử lại.'));
+        scan.challenge = ch;
+        if (!ch.steps.length) scan.needLive = false;      // quản trị đã tắt cả hai kiểm tra
+      }
+      setMsg('Nhìn thẳng, đưa khuôn mặt vào khung oval...');
+      detectLoop();
+    } catch(e) {
+      if (needLive) {
+        setMsg('Không mở được camera trực tiếp. Bước xác nhận người thật cần camera trực tiếp: ' +
+          'hãy cấp quyền camera cho trình duyệt (hoặc mở link bằng Chrome/Safari) rồi thử lại.');
+      } else {
+        setMsg('Không mở được camera trực tiếp. Bấm nút dưới đây để chụp ảnh khuôn mặt.');
+        $('fallback').classList.remove('hidden');
+      }
+    }
+  });
+}
+
+function startStep(sc){
+  const act = sc.challenge.steps[sc.step];
+  sc.sub = act === 'CHOP' ? 'close' : 'turn'; sc.tStep = Date.now();
+  $('oval').classList.remove('blink');
+  setCue(ACT_TEXT[act].cue);
+  setMsg('Bước ' + (sc.step+1) + '/' + sc.challenge.steps.length + ': ' + ACT_TEXT[act].msg);
+}
+function nextStep(sc){
+  sc.done.push(sc.challenge.steps[sc.step]); sc.step++;
+  if (sc.step >= sc.challenge.steps.length) { sc.phase = 'after'; setCue(''); setMsg('Nhìn thẳng để xác nhận...'); }
+  else startStep(sc);
+}
+function resetScan(sc, msg){
+  Object.assign(sc, { descs:[], ears:[], yaws:[], phase:'face', step:0, done:[], sub:'' });
+  setCue(''); $('oval').classList.remove('blink'); setMsg(msg);
+}
+
+/** Xử lý 1 khung hình trong giai đoạn làm động tác */
+function runAction(sc, lm){
+  const act = sc.challenge.steps[sc.step];
+  if (act === 'CHOP') {
+    const ear = earOf(lm);
+    if (sc.sub === 'close' && ear < sc.baseEar * 0.72) { sc.sub = 'open'; $('oval').classList.add('blink'); setMsg('Tốt! Bây giờ mở mắt ra...'); }
+    else if (sc.sub === 'open' && ear > sc.baseEar * 0.88) nextStep(sc);
+  } else {
+    const dy = (yawOf(lm) - sc.baseYaw) * YAW_SIGN;      // > 0: quay TRÁI, < 0: quay PHẢI
+    const want = act === 'TRAI' ? 1 : -1;
+    if (sc.sub === 'turn') {
+      if (dy * want > 0.13) { sc.sub = 'back'; setCue('⬆ NHÌN THẲNG'); setMsg('Tốt! Quay lại nhìn thẳng camera'); }
+      else if (dy * want < -0.13) setMsg('Sai hướng! ' + ACT_TEXT[act].msg);
+    } else if (sc.sub === 'back' && Math.abs(dy) < 0.06) nextStep(sc);
+  }
+  if (sc.phase === 'act' && Date.now() - sc.tStep > 15000) {
+    setMsg(act === 'CHOP' ? 'Chưa thấy chớp mắt. Hãy NHẮM HẲN mắt khoảng 1 giây rồi mở ra.'
+                          : 'Chưa thấy quay mặt. ' + ACT_TEXT[act].msg + ' rõ hơn (khoảng 30°).');
+    sc.tStep = Date.now() - 5000;
+  }
+}
+
+async function detectLoop(){
+  if (!scan || !scan.stream) return;
+  const v = $('video');
+  const sc = scan;
+  try {
+    if (sc.phase === 'act') {
+      // Chỉ lấy điểm mốc (nhanh) để không bỏ lỡ động tác
+      const r = await faceapi.detectSingleFace(v, FAST()).withFaceLandmarks();
+      if (!scan) return;
+      if (r) runAction(sc, r.landmarks);
+      return setTimeout(detectLoop, 0);
+    }
+
+    const r = await faceapi.detectSingleFace(v, DET()).withFaceLandmarks().withFaceDescriptor();
+    if (!scan) return;
+    const bigEnough = r && r.detection.box.width > v.videoWidth * 0.22;
+    if (!(r && r.detection.score > 0.7 && bigEnough)) {
+      $('oval').classList.remove('hit');
+      setMsg(!r ? 'Chưa thấy khuôn mặt...' : (!bigEnough ? 'Đưa mặt lại gần hơn' : 'Nhìn thẳng, đủ ánh sáng'));
+      return setTimeout(detectLoop, 120);
+    }
+    const desc = Array.from(r.descriptor), ear = earOf(r.landmarks), yaw = yawOf(r.landmarks);
+    $('oval').classList.add('hit');
+
+    if (sc.phase === 'face') {
+      if (sc.needLive && Math.abs(yaw - 0.5) > 0.12) { setMsg('Hãy nhìn thẳng vào camera'); return setTimeout(detectLoop, 120); }
+      sc.descs.push(desc); sc.ears.push(ear); sc.yaws.push(yaw);
+      if (!sc.needLive) {
+        setMsg('Giữ yên... ' + sc.descs.length + '/3');
+        if (sc.descs.length >= 3) return finishScan(null, avg(sc.descs), null);
+      } else if (sc.descs.length >= 2) {
+        sc.baseEar = median(sc.ears); sc.baseYaw = median(sc.yaws);
+        if (sc.challenge.steps.includes('CHOP') && sc.baseEar < 0.18) resetScan(sc, 'Hãy mở to mắt, nhìn thẳng camera');
+        else { sc.phase = 'act'; startStep(sc); return setTimeout(detectLoop, 0); }
+      } else setMsg('Giữ yên...');
+    } else if (sc.phase === 'after') {
+      if (Math.abs(yaw - sc.baseYaw) > 0.08) { setMsg('Nhìn thẳng vào camera để xác nhận'); return setTimeout(detectLoop, 120); }
+      // Mẫu cuối phải cùng một khuôn mặt với mẫu đầu (chống đổi ảnh/người giữa chừng)
+      if (descDist(avg(sc.descs), desc) > 0.5) resetScan(sc, 'Khuôn mặt thay đổi trong khi quét – vui lòng làm lại.');
+      else {
+        sc.descs.push(desc);
+        return finishScan(null, avg(sc.descs), { ok:true, challengeId: sc.challenge.id, done: sc.done });
+      }
+    }
+  } catch(e){}
+  if (scan) setTimeout(detectLoop, 120);
+}
+
+$('fileInput').onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f || !scan || scan.needLive) return;
+  setMsg('Đang phân tích ảnh...');
+  try {
+    const img = await faceapi.bufferToImage(f);
+    const r = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({inputSize:416, scoreThreshold:0.5}))
+      .withFaceLandmarks().withFaceDescriptor();
+    if (!r) { setMsg('Không thấy khuôn mặt trong ảnh, vui lòng chụp lại.'); return; }
+    finishScan(null, Array.from(r.descriptor), null);
+  } catch(err){ setMsg('Lỗi đọc ảnh, thử lại.'); }
+};
+function avg(list){ const o=new Array(128).fill(0); list.forEach(d=>d.forEach((x,i)=>o[i]+=x/list.length)); return o; }
+/** Trả về { desc, live } */
+function finishScan(err, desc, live){
+  if (!scan) return;
+  const s = scan; scan = null; setCue('');
+  if (s.stream) s.stream.getTracks().forEach(t=>t.stop());
+  $('video').srcObject = null;
+  $('camModal').classList.remove('show');
+  const clean = desc && desc.map(x => Math.round(x*1e5)/1e5);
+  err ? s.reject(err) : s.resolve({ desc: clean, live: live || { ok:false } });
+}
+</script>
+
+<!-- JsChamCong.html – Chấm công, trang cá nhân, báo vắng, duyệt đơn -->
+<script>
+/* ---------- Chấm công ---------- */
+$('btnCheck').onclick = async () => {
+  const box = $('ccResult'); box.className='result';
+  const btn = $('btnCheck'); btn.disabled = true;
+  try {
+    const ipP = getIp();
+    const locP = INFO.viTri ? getLoc() : Promise.resolve(null);
+    const sf = await scanFace('Soi mặt chấm công', { live:true });
+    box.className='result warn'; box.textContent='Đang xác thực...';
+    const [ip, loc] = await Promise.all([ipP, locP]);
+    const r = await call('checkIn', { desc: sf.desc, live: sf.live, ip, loc });
+    setSession(r.token, r.user);
+    const loai = r.type==='VAO' ? 'GIỜ VÀO' : r.type==='RA' ? 'GIỜ RA' : 'ĐÃ CHẤM TRƯỚC ĐÓ';
+    const gio = r.type==='RA' ? r.gioRa : r.gioVao;
+    box.className = 'result ' + (r.ghiChu ? 'warn' : 'ok');
+    box.innerHTML = '✅ <b>'+esc(r.user.hoTen)+'</b> – '+esc(r.user.phongBan)+'<br>'+loai+': <b>'+esc(gio)+'</b>'+
+      (r.type==='TRUNG' ? '<br>Bạn vừa chấm vào lúc '+esc(r.gioVao)+'. Hãy chấm ra khi tan làm.' : '') +
+      (r.ghiChu ? '<br>⚠ '+esc(r.ghiChu) : '');
+  } catch(e){
+    if (errMsg(e)==='Đã hủy') box.className='result';
+    else { box.className='result err'; box.textContent='❌ '+errMsg(e); }
+  } finally { btn.disabled = false; }
+};
+
+/* ---------- Cá nhân ---------- */
+const stClass = s => /Chờ/.test(s)?'cho':s==='Đã duyệt'?'ok':s==='Từ chối'?'no':'huy';
+function leaveCard(d, actions){
+  return '<div class="leave"><b>'+esc(d.loai)+'</b> · '+esc(d.tuNgay)+' → '+esc(d.denNgay)+' ('+esc(d.soNgay)+' ngày) '+
+    '<span class="st '+stClass(d.trangThai)+'">'+esc(d.trangThai)+'</span>'+
+    (actions && d.hoTen ? '<div class="meta">'+esc(d.hoTen)+' – '+esc(d.phongBan)+'</div>' : '')+
+    '<div class="meta">Lý do: '+esc(d.lyDo)+'</div>'+
+    (d.tpDuyet ? '<div class="meta">Trưởng phòng: '+esc(d.tpDuyet)+(d.tpYKien?' – “'+esc(d.tpYKien)+'”':'')+'</div>' : '')+
+    (d.ldDuyet ? '<div class="meta">Lãnh đạo: '+esc(d.ldDuyet)+(d.ldYKien?' – “'+esc(d.ldYKien)+'”':'')+'</div>' : '')+
+    '<div class="meta">Gửi lúc '+esc(d.ngayGui)+' · '+esc(d.maDon)+'</div>'+(actions||'')+'</div>';
+}
+async function loadMe(){
+  if (!TOKEN) return;
+  try {
+    const r = await call('getMyData', TOKEN);
+    $('myLeaves').innerHTML = r.donNghi.length ? r.donNghi.map(d => leaveCard(d,
+      /Chờ/.test(d.trangThai) ? '<button class="btn sm" onclick="cancelLeave(\''+esc(d.maDon)+'\')">Hủy đơn</button>' : '')).join('')
+      : 'Chưa có đơn nào.';
+    $('myCC').innerHTML = r.chamCong.length ? '<table><tr><th>Ngày</th><th>Vào</th><th>Ra</th><th>Ghi chú</th></tr>'+
+      r.chamCong.map(c=>'<tr><td>'+esc(c.ngay)+'</td><td>'+esc(c.vao)+'</td><td>'+esc(c.ra||'—')+'</td><td>'+esc(c.ghiChu)+'</td></tr>').join('')+'</table>'
+      : 'Chưa có dữ liệu.';
+  } catch(e){ handleAuthErr(e); }
+}
+async function sendLeave(){
+  const f = { tuNgay:$('lvTu').value, denNgay:$('lvDen').value, loai:$('lvLoai').value, lyDo:$('lvLyDo').value };
+  if (!f.tuNgay || !f.denNgay) return toast('Chọn từ ngày / đến ngày');
+  $('btnLeave').disabled = true;
+  try {
+    const r = await call('submitLeave', TOKEN, f);
+    toast('Đã gửi đơn ('+r.soNgay+' ngày) – '+r.trangThai, 5000);
+    $('lvLyDo').value=''; loadMe();
+  } catch(e){ handleAuthErr(e); } finally { $('btnLeave').disabled = false; }
+}
+async function cancelLeave(ma){
+  if (!confirm('Hủy đơn '+ma+'?')) return;
+  try { await call('cancelLeave', TOKEN, ma); toast('Đã hủy đơn'); loadMe(); } catch(e){ handleAuthErr(e); }
+}
+
+/* ---------- Duyệt ---------- */
+async function loadPending(){
+  $('pending').textContent = 'Đang tải...';
+  try {
+    const list = await call('getPending', TOKEN);
+    $('pending').innerHTML = list.length ? list.map(d => leaveCard(d,
+      '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm ok" onclick="decide(\''+esc(d.maDon)+'\',true)">✔ Đồng ý</button>'+
+      '<button class="btn sm err" onclick="decide(\''+esc(d.maDon)+'\',false)">✖ Từ chối</button></div>')).join('')
+      : 'Không có đơn nào chờ duyệt.';
+  } catch(e){ handleAuthErr(e); $('pending').textContent=''; }
+}
+async function decide(ma, ok){
+  const y = prompt(ok ? 'Ý kiến (không bắt buộc):' : 'Lý do từ chối:', '');
+  if (y === null) return;
+  try { const r = await call('approveLeave', TOKEN, ma, ok, y); toast('Đã xử lý: '+r.trangThai); loadPending(); }
+  catch(e){ handleAuthErr(e); }
+}
+</script>
+
+<!-- JsBaoCao.html – Xuất báo cáo Excel / Google Drive -->
+<script>
+/* ---------- Báo cáo ---------- */
+function fillKy(){
+  const k=$('bcKieu').value, sel=$('bcKy'); sel.innerHTML='';
+  $('kyBox').style.display = k==='nam' ? 'none' : '';
+  const n = k==='thang'?12:4, cur = new Date().getMonth()+1;
+  for (let i=1;i<=n;i++){ const o=document.createElement('option'); o.value=i; o.textContent=(k==='thang'?'Tháng ':'Quý ')+i; sel.appendChild(o); }
+  sel.value = k==='thang' ? cur : Math.ceil(cur/3);
+}
+const bcParams = () => ({ kieu:$('bcKieu').value, ky:Number($('bcKy').value), nam:Number($('bcNam').value) });
+async function exportXlsx(){
+  $('btnXlsx').disabled = true;
+  try {
+    const r = await call('getReport', TOKEN, bcParams());
+    const wb = XLSX.utils.book_new();
+    const add = (name, rows, widths) => {
+      const aoa = [[r.tieuDe], [r.coQuan+' | Từ '+r.tuNgay+' đến '+r.denNgay+' | Lập bởi '+r.nguoiLap+' lúc '+r.ngayLap], []].concat(rows);
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = widths.map(w=>({wch:w}));
+      ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:widths.length-1}},{s:{r:1,c:0},e:{r:1,c:widths.length-1}}];
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    };
+    add('TongHop', r.tongHop, [5,10,26,18,10,10,10,10,10,12,12,10]);
+    add('ChiTiet', r.chiTiet, [12,10,26,18,10,10,8,30]);
+    add('NghiPhep', r.nghiPhep, [18,10,26,18,12,12,8,16,36,26,26]);
+    XLSX.writeFile(wb, r.tenFile + '.xlsx');
+    $('bcPreview').innerHTML = '<p class="muted">Xem nhanh trang tổng hợp:</p><table>'+
+      r.tongHop.map((row,i)=>'<tr>'+row.map(c=>(i?'<td>':'<th>')+esc(c)+(i?'</td>':'</th>')).join('')+'</tr>').join('')+'</table>';
+  } catch(e){ handleAuthErr(e); } finally { $('btnXlsx').disabled = false; }
+}
+async function exportDrive(){
+  $('btnDrive').disabled = true;
+  try {
+    const r = await call('saveReportToDrive', TOKEN, bcParams());
+    $('bcPreview').innerHTML = '<p>Đã lưu báo cáo: <a href="'+esc(r.url)+'" target="_blank">Mở Google Sheet</a> · '+
+      '<a href="'+esc(r.xlsx)+'" target="_blank">Tải .xlsx</a></p>';
+  } catch(e){ handleAuthErr(e); } finally { $('btnDrive').disabled = false; }
+}
+</script>
+
+<!-- JsQuanTri.html – Quản trị: đăng ký khuôn mặt, thiết bị neo wifi, vị trí GPS -->
+<script>
+/* ---------- Thiết bị neo wifi ---------- */
+let anchorTimer = null, wakeLock = null;
+const lsGet = k => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const lsSet = (k,v) => { try { v==null ? localStorage.removeItem(k) : localStorage.setItem(k,v); } catch(e){} };
+async function anchorTick(){
+  const tk = lsGet('cc_anchor'); if (!tk) return;
+  const bar = $('anchorBar');
+  try {
+    const ip = await getIp();
+    const r = await call('anchorPing', tk, ip);
+    bar.className=''; $('anchorTxt').textContent = '📡 Máy này là THIẾT BỊ NEO wifi cơ quan · IP ' + r.ip + ' · cập nhật ' + r.at + ' · hãy để trang này luôn mở';
+  } catch(e){
+    bar.className='err'; $('anchorTxt').textContent = '📡 Thiết bị neo lỗi: ' + errMsg(e);
+    if (/không hợp lệ|bị gỡ/.test(errMsg(e))) stopAnchor(true);
+  }
+}
+async function startAnchor(){
+  $('anchorBar').classList.remove('hidden');
+  clearInterval(anchorTimer); anchorTick(); anchorTimer = setInterval(anchorTick, 5*60*1000);
+  try { if (navigator.wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); } } catch(e){}
+}
+function stopAnchor(silent){
+  if (!silent && !confirm('Tắt thiết bị neo trên máy này?')) return;
+  clearInterval(anchorTimer); lsSet('cc_anchor', null);
+  if (!silent) $('anchorBar').classList.add('hidden');
+  try { wakeLock && wakeLock.release(); } catch(e){}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState==='visible' && lsGet('cc_anchor')) { anchorTick();
+  try { navigator.wakeLock && navigator.wakeLock.request('screen').then(w=>wakeLock=w); } catch(e){} } });
+
+/* ---------- Quản trị ---------- */
+async function adminLoad(){
+  try {
+    const list = await call('adminList', $('pin').value);
+    $('adminList').innerHTML = '<table><tr><th>Mã</th><th>Họ tên</th><th>Phòng</th><th>Khuôn mặt</th><th></th></tr>'+
+      list.map(e=>'<tr><td>'+esc(e.maNV)+'</td><td>'+esc(e.hoTen)+'<div class="muted">'+esc(e.vaiTro)+(e.trangThai==='NghiViec'?' · nghỉ việc':'')+'</div></td><td>'+esc(e.phongBan)+'</td>'+
+        '<td>'+(e.soMau ? '✅ '+e.soMau+' mẫu<div class="muted">'+esc(e.capNhat)+'</div>' : '<span class="muted">Chưa có</span>')+'</td>'+
+        '<td><button class="btn sm pri" onclick="enroll(\''+esc(e.maNV)+'\',\''+esc(e.hoTen)+'\')">'+(e.soMau?'Đăng ký lại':'Đăng ký')+'</button></td></tr>').join('')+'</table>';
+    loadNet();
+  } catch(e){ toast(errMsg(e), 5000); }
+}
+async function loadNet(){
+  try {
+    const n = await call('adminNetStatus', $('pin').value);
+    $('netCard').classList.remove('hidden'); $('locCard').classList.remove('hidden');
+    const rows = n.anchors.map(a => '<tr><td><span class="dot'+(a.online?' on':'')+'"></span>'+esc(a.name)+'</td><td>'+esc(a.ip||'—')+'</td><td>'+esc(a.lastSeen||'chưa kết nối')+'</td></tr>').join('');
+    $('netStatus').innerHTML =
+      (n.anchors.length ? '<table><tr><th>Thiết bị neo</th><th>IP wifi</th><th>Báo về lần cuối</th></tr>'+rows+'</table>'
+        : '<p class="muted">Chưa có thiết bị neo nào – hiện <b>chưa kiểm tra wifi</b> khi chấm công.</p>') +
+      '<p class="muted">IP wifi đang được chấp nhận: <b>' + (esc(n.ips.filter(x=>x.valid).map(x=>x.ip).concat(n.staticIps).join(', ')) || 'không có') + '</b>' +
+      (lsGet('cc_anchor') ? ' · <b>Máy này đang là thiết bị neo.</b>' : '') + '</p>';
+    $('locStatus').innerHTML = 'Trạng thái: <b>' + (n.viTri && n.office ? 'ĐANG BẬT' : 'đang tắt') + '</b>' +
+      (n.office ? ' · Toạ độ cơ quan: ' + esc(n.office) + ' · Bán kính: ' + esc(n.radius) + ' m' : ' · Chưa có toạ độ cơ quan');
+  } catch(e){ toast(errMsg(e), 5000); }
+}
+async function makeAnchor(){
+  const name = prompt('Đặt tên cho thiết bị neo (vd: Máy tính văn phòng tầng 1):', 'Máy tính văn phòng');
+  if (name === null) return;
+  try {
+    const ip = await getIp(); if (!ip) return toast('Không xác định được mạng – kiểm tra kết nối wifi cơ quan.');
+    if (!confirm('Máy này đang ở mạng có IP ' + ip + '. Chắc chắn máy đang dùng WIFI CƠ QUAN?')) return;
+    const r = await call('adminCreateAnchor', $('pin').value, name);
+    lsSet('cc_anchor', r.token); await startAnchor(); toast('Đã đặt máy này làm thiết bị neo. Hãy để trang luôn mở.', 6000);
+    setTimeout(loadNet, 2500);
+  } catch(e){ toast(errMsg(e), 5000); }
+}
+async function removeAnchors(){
+  if (!confirm('Gỡ TẤT CẢ thiết bị neo? Sau đó hệ thống sẽ không kiểm tra wifi (trừ IP tĩnh) cho đến khi đặt máy neo mới.')) return;
+  try { await call('adminRemoveAnchors', $('pin').value); stopAnchor(true); $('anchorBar').classList.add('hidden'); toast('Đã gỡ.'); loadNet(); }
+  catch(e){ toast(errMsg(e), 5000); }
+}
+async function setOffice(on){
+  try {
+    if (!on) { const n = await call('adminNetStatus', $('pin').value);
+      if (!n.office) return toast('Chưa có toạ độ cơ quan.');
+      const [lat,lng] = n.office.split(',').map(Number); await call('adminSetOffice', $('pin').value, lat, lng, false);
+      toast('Đã tắt kiểm tra vị trí'); return loadNet(); }
+    toast('Đang lấy vị trí...');
+    const l = await getLoc();
+    if (!l) return toast('Không lấy được vị trí. Hãy cho phép truy cập vị trí và bật GPS.', 5000);
+    if (l.acc > 100 && !confirm('Độ chính xác thấp (±' + Math.round(l.acc) + ' m). Vẫn lưu toạ độ này?')) return;
+    await call('adminSetOffice', $('pin').value, l.lat, l.lng, true);
+    toast('Đã lưu toạ độ cơ quan và bật kiểm tra vị trí'); loadNet();
+  } catch(e){ toast(errMsg(e), 5000); }
+}
+async function enroll(ma, ten){
+  const descs = [];
+  try {
+    for (let i=1;i<=3;i++){
+      descs.push((await scanFace('Mẫu '+i+'/3 – '+ten+(i>1?' (nghiêng nhẹ đầu)':''))).desc);
+    }
+    const r = await call('adminEnroll', $('pin').value, ma, descs);
+    toast('Đã lưu '+r.soMau+' mẫu khuôn mặt cho '+ten); adminLoad();
+  } catch(e){ if (errMsg(e)!=='Đã hủy') toast(errMsg(e), 6000); }
+}
+</script>
+
+<!-- JsKhoiDong.html – Khởi động ứng dụng (luôn nạp cuối cùng) -->
+<script>
+/* ---------- Khởi động ---------- */
+(async function init(){
+  $('bcNam').value = new Date().getFullYear(); fillKy();
+  const t = new Date().toISOString().slice(0,10); $('lvTu').value = t; $('lvDen').value = t;
+  renderSession();
+  try {
+    INFO = await call('getPublicInfo');
+    $('org').textContent = INFO.tenCoQuan;
+    $('chuan').textContent = 'Giờ làm việc: ' + INFO.gioVao + ' – ' + INFO.gioRa;
+    $('lvLoai').innerHTML = INFO.loaiNghi.map(l=>'<option>'+esc(l)+'</option>').join('');
+  } catch(e){ toast(errMsg(e), 6000); }
+  const ip = await getIp();
+  const n = $('net');
+  if (!ip) { n.textContent = 'Không xác định được mạng'; n.className = 'pill err'; }
+  else { n.textContent = 'Mạng hiện tại: ' + ip + (INFO.kiemTraWifi ? '' : ' (chưa bật kiểm tra wifi)') + (INFO.viTri ? ' · có kiểm tra vị trí' : ''); n.className = 'pill ok'; }
+  if (lsGet('cc_anchor')) startAnchor();
+})();
+</script>
+
+</body>
+</html>
