@@ -194,6 +194,7 @@
     <h2 id="camTitle">Soi khuôn mặt</h2>
     <div class="camwrap"><video id="video" playsinline muted autoplay></video><div class="oval" id="oval"></div><div class="cue" id="cue"></div></div>
     <div id="camMsg"></div>
+    <div id="camDbg" class="muted" style="margin:-6px 0 8px"></div>
     <div id="fallback" class="hidden" style="margin-bottom:10px">
       <label class="btn pri">📸 Chụp ảnh khuôn mặt
         <input type="file" accept="image/*" capture="user" id="fileInput" hidden>
@@ -371,7 +372,7 @@ function scanFace(title, opts){
 
 function startStep(sc){
   const act = sc.challenge.steps[sc.step];
-  sc.sub = act === 'CHOP' ? 'close' : 'turn'; sc.tStep = Date.now();
+  sc.sub = act === 'CHOP' ? 'close' : 'turn'; sc.tStep = Date.now(); sc.minEar = null; $('camDbg').textContent = '';
   $('oval').classList.remove('blink');
   setCue(ACT_TEXT[act].cue);
   setMsg('Bước ' + (sc.step+1) + '/' + sc.challenge.steps.length + ': ' + ACT_TEXT[act].msg);
@@ -391,8 +392,13 @@ function runAction(sc, lm){
   const act = sc.challenge.steps[sc.step];
   if (act === 'CHOP') {
     const ear = earOf(lm);
-    if (sc.sub === 'close' && ear < sc.baseEar * 0.72) { sc.sub = 'open'; $('oval').classList.add('blink'); setMsg('Tốt! Bây giờ mở mắt ra...'); }
-    else if (sc.sub === 'open' && ear > sc.baseEar * 0.88) nextStep(sc);
+    const base = sc.baseEar;
+    sc.minEar = Math.min(sc.minEar == null ? 9 : sc.minEar, ear);
+    $('camDbg').textContent = 'Độ mở mắt: ' + ear.toFixed(2) + ' (mắt mở ≈ ' + base.toFixed(2) + ')';
+    // Nhạy hơn: coi là NHẮM khi giảm ≥18% hoặc ≥0.045 so với lúc mở; MỞ lại khi hồi về gần mức ban đầu
+    if (sc.sub === 'close' && (ear < base * 0.82 || base - ear > 0.045)) {
+      sc.sub = 'open'; $('oval').classList.add('blink'); setMsg('Tốt! Bây giờ mở mắt ra...');
+    } else if (sc.sub === 'open' && (ear > base * 0.92 || ear > sc.minEar + 0.05)) nextStep(sc);
   } else {
     const dy = (yawOf(lm) - sc.baseYaw) * YAW_SIGN;      // > 0: quay TRÁI, < 0: quay PHẢI
     const want = act === 'TRAI' ? 1 : -1;
@@ -415,7 +421,10 @@ async function detectLoop(){
   try {
     if (sc.phase === 'act') {
       // Chỉ lấy điểm mốc (nhanh) để không bỏ lỡ động tác
-      const r = await faceapi.detectSingleFace(v, FAST()).withFaceLandmarks();
+      const blinkStep = sc.challenge.steps[sc.step] === 'CHOP';
+      // Bước chớp mắt cần điểm mốc mắt chính xác hơn → dùng ảnh phân giải cao hơn
+      const opt = blinkStep ? new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 }) : FAST();
+      const r = await faceapi.detectSingleFace(v, opt).withFaceLandmarks();
       if (!scan) return;
       if (r) runAction(sc, r.landmarks);
       return setTimeout(detectLoop, 0);
@@ -472,7 +481,7 @@ function avg(list){ const o=new Array(128).fill(0); list.forEach(d=>d.forEach((x
 /** Trả về { desc, live } */
 function finishScan(err, desc, live){
   if (!scan) return;
-  const s = scan; scan = null; setCue('');
+  const s = scan; scan = null; setCue(''); $('camDbg').textContent = '';
   if (s.stream) s.stream.getTracks().forEach(t=>t.stop());
   $('video').srcObject = null;
   $('camModal').classList.remove('show');
