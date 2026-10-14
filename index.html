@@ -95,6 +95,7 @@
       <div class="muted" style="margin-top:10px" id="chuan"></div>
       <div><span class="pill" id="net">Đang kiểm tra mạng...</span></div>
       <div><span class="pill" id="model">Đang tải bộ nhận diện khuôn mặt...</span></div>
+      <div><span class="pill" id="srv">Đang kết nối máy chủ...</span></div>
       <div class="result" id="ccResult"></div>
     </div>
     <div class="card muted">
@@ -213,13 +214,15 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp
 const API_URL = 'https://script.google.com/macros/s/AKfycbzqCTXIhPpX7uIBH1VKZzRegxIxuWIhSe6tUYN3KJMcl7bZ728xUodgqyFff2V7goM2nQ/exec';
 
 /** Gọi chức năng trên máy chủ Apps Script qua HTTPS */
+const API = String(API_URL).trim().replace(/\/exec[\/?#].*$/, '/exec');
 async function call(fn, ...args) {
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(API_URL)) {
-    throw new Error('Chưa cấu hình đường link máy chủ (API_URL) trong file index.html.');
+  if (!/^https:\/\/script\.google\.com\/(a\/macros\/[^\/]+|macros)\/s\/[\w-]+\/exec$/.test(API)) {
+    throw new Error('Chưa cấu hình đúng link máy chủ (API_URL). Link phải có dạng https://script.google.com/macros/s/.../exec – hiện đang là: ' +
+      (API.length > 70 ? API.slice(0, 70) + '…' : API));
   }
   let r;
   try {
-    r = await fetch(API_URL, { method: 'POST', redirect: 'follow',
+    r = await fetch(API, { method: 'POST', redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args }) });
   } catch (e) { throw new Error('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.'); }
   let j;
@@ -710,10 +713,11 @@ async function enroll(ma, ten){
   renderSession();
   try {
     INFO = await call('getPublicInfo');
+    $('srv').textContent = 'Máy chủ: đã kết nối'; $('srv').className = 'pill ok';
     $('org').textContent = INFO.tenCoQuan;
     $('chuan').textContent = 'Giờ làm việc: ' + INFO.gioVao + ' – ' + INFO.gioRa;
     $('lvLoai').innerHTML = INFO.loaiNghi.map(l=>'<option>'+esc(l)+'</option>').join('');
-  } catch(e){ toast(errMsg(e), 6000); }
+  } catch(e){ $('srv').textContent = 'Máy chủ: ' + errMsg(e); $('srv').className = 'pill err'; }
   const ip = await getIp();
   const n = $('net');
   if (!ip) { n.textContent = 'Không xác định được mạng'; n.className = 'pill err'; }
